@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: envisioner-app
+    runtime: node
+    region: ohio
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: DISCOVERY_API_URL
+        sync: false
+    healthCheckPath: /
+    autoDeploy: false
