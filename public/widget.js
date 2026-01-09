@@ -134,7 +134,7 @@
       const viewportWidth = window.innerWidth;
       if (viewportWidth <= 900) return;
       const menuRight = getMenuRightEdge();
-      const padding = 20;
+      const padding = 40;
       if (menuRight > 0) {
         const availableWidth = viewportWidth - menuRight - padding;
         if (availableWidth < 300) {
