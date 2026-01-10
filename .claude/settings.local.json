@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git restore:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd Discovery AI widget and APIs\n\n- Add discovery-briefing API for AI-powered discovery insights\n- Add discovery-ask API for AI chat about creator discovery\n- Add discovery-widget.js for discovery.envisioner.io\n- Add discovery-db.js with user preferences and access levels\n- Add migrate-discovery API for database migration\n- Add update-metrics API for user metrics aggregation\n- Fix views calculation to only count promotion=YES deliverables\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push)",
+      "Bash(vercel env:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

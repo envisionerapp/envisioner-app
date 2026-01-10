@@ -9,11 +9,6 @@ import {
   getSimilarCreatorCriteria,
   getUserDiscoveryStats,
 } from '@/lib/discovery-db';
-import {
-  getDiscoveryStats,
-  getLiveCreators,
-  searchDiscoveryCreators,
-} from '@/lib/discovery-client';
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({
@@ -48,11 +43,10 @@ export async function GET(request) {
     await ensureDiscoveryColumns(sql);
 
     // Get user data in parallel
-    const [preferences, accessLevel, performanceHistory, discoveryStats, userStats] = await Promise.all([
+    const [preferences, accessLevel, performanceHistory, userStats] = await Promise.all([
       getUserDiscoveryPreferences(sql, userId),
       getUserAccessLevel(sql, userId),
       getUserPerformanceHistory(sql, userId),
-      getDiscoveryStats().catch(() => null),
       getUserDiscoveryStats(sql, userId),
     ]);
 
@@ -61,54 +55,19 @@ export async function GET(request) {
     // Get similar creator criteria if user has performance data
     const similarCriteria = await getSimilarCreatorCriteria(sql, userId);
 
-    // Get live creators if available
-    let liveCreators = [];
-    if (capabilities.canViewLive && discoveryStats?.data?.liveNow > 0) {
-      try {
-        const liveData = await getLiveCreators({
-          platform: preferences.platforms?.[0],
-          limit: 5,
-        });
-        liveCreators = liveData?.data?.live || [];
-      } catch (e) {
-        console.error('[Discovery Briefing] Failed to get live creators:', e.message);
-      }
-    }
-
-    // Get AI-powered recommendations
-    let recommendations = [];
-    if (similarCriteria && capabilities.canViewPerformance) {
-      try {
-        const searchResults = await searchDiscoveryCreators({
-          platforms: similarCriteria.preferredPlatforms,
-          hasPerformanceData: true,
-          limit: capabilities.similarCreatorLimit,
-        });
-        recommendations = searchResults?.data?.creators || [];
-      } catch (e) {
-        console.error('[Discovery Briefing] Failed to get recommendations:', e.message);
-      }
-    }
-
-    // Generate AI summary
+    // Generate AI summary based on user's performance data
     const summary = await generateDiscoverySummary({
       preferences,
       performanceHistory,
-      discoveryStats: discoveryStats?.data,
       userStats,
-      liveCreators,
-      recommendations,
       similarCriteria,
       capabilities,
     });
 
-    // Build action cards
+    // Build action cards based on user data
     const actions = generateDiscoveryActions({
       preferences,
       performanceHistory,
-      discoveryStats: discoveryStats?.data,
-      liveCreators,
-      recommendations,
       similarCriteria,
       capabilities,
     });
@@ -117,22 +76,21 @@ export async function GET(request) {
     const suggestedPrompts = generateDiscoveryPrompts({
       preferences,
       performanceHistory,
-      hasLive: liveCreators.length > 0,
     });
 
-    // Build metrics
+    // Build metrics from user's actual data
     const metrics = [
       {
-        label: 'Database',
-        value: discoveryStats?.data?.totalCreators?.toLocaleString() || '50K+',
+        label: 'Creators',
+        value: userStats.total_creators_used?.toString() || '0',
       },
       {
-        label: 'Live Now',
-        value: discoveryStats?.data?.liveNow?.toString() || '0',
+        label: 'Top Performers',
+        value: performanceHistory.topPerformers.length.toString(),
       },
       {
-        label: 'Your Matches',
-        value: recommendations.length.toString(),
+        label: 'Avg CPA',
+        value: performanceHistory.patterns?.avgCpa ? `$${performanceHistory.patterns.avgCpa}` : '-',
       },
     ];
 
@@ -149,8 +107,6 @@ export async function GET(request) {
       data: {
         preferences,
         performanceHistory: capabilities.canViewPerformance ? performanceHistory : null,
-        liveCreators,
-        recommendations: capabilities.canViewPerformance ? recommendations : [],
         similarCriteria,
       },
     }, { headers: corsHeaders });
@@ -168,55 +124,51 @@ async function generateDiscoverySummary(data) {
   const {
     preferences,
     performanceHistory,
-    discoveryStats,
     userStats,
-    liveCreators,
-    recommendations,
     similarCriteria,
     capabilities,
   } = data;
 
   const hasPerformanceData = performanceHistory.topPerformers.length > 0;
-  const hasPreferences = preferences.platforms?.length > 0 || preferences.regions?.length > 0;
 
   // Build context for AI
-  const prompt = `You are an influencer marketing discovery assistant. Generate a brief 2-3 bullet point summary for a user exploring creator discovery.
+  const prompt = `You are an influencer marketing discovery assistant. Generate a brief 2-3 bullet point summary to help a user find new creators based on their past performance.
 
 USER CONTEXT:
 - Access level: ${capabilities.aiRecommendations === 'full' ? 'Pro/Enterprise' : 'Basic'}
+- Total creators worked with: ${userStats.total_creators_used || 0}
 - Has performance history: ${hasPerformanceData ? 'Yes' : 'No'}
-- Top performers: ${performanceHistory.topPerformers.slice(0, 3).map(p => `${p.name} (${p.platform})`).join(', ') || 'None yet'}
-- Best performing platform: ${performanceHistory.patterns?.bestPlatform || 'Unknown'}
-- Average CPA of top performers: ${performanceHistory.patterns?.avgCpa ? `$${performanceHistory.patterns.avgCpa}` : 'N/A'}
+
+${hasPerformanceData ? `TOP PERFORMERS:
+${performanceHistory.topPerformers.slice(0, 5).map(p => `- ${p.name} (${p.platform}): ${p.conversions} conversions, $${p.cpa?.toFixed(2) || 'N/A'} CPA`).join('\n')}
+
+SUCCESS PATTERNS:
+- Best platform: ${performanceHistory.patterns?.bestPlatform || 'Unknown'}
+- Average CPA on top performers: $${performanceHistory.patterns?.avgCpa || 'N/A'}
+- Average spend per top performer: $${performanceHistory.patterns?.avgSpendOnTopPerformers || 'N/A'}` : 'No performance data yet - user is new.'}
 
 PREFERENCES:
 - Preferred platforms: ${preferences.platforms?.join(', ') || 'All'}
-- Target regions: ${preferences.regions?.join(', ') || 'Global'}
+- Target regions: ${preferences.regions?.join(', ') || 'Not set'}
 - Target CPA: ${preferences.targetCpa ? `$${preferences.targetCpa}` : 'Not set'}
 - Budget: ${preferences.monthlyBudget ? `$${preferences.monthlyBudget}/month` : 'Not set'}
 
-DISCOVERY DATABASE:
-- Total creators: ${discoveryStats?.totalCreators?.toLocaleString() || '50,000+'}
-- Currently live: ${discoveryStats?.liveNow || 0}
-- Creators with performance data: ${discoveryStats?.performance?.creatorsWithData || 0}
-
-CURRENT MATCHES:
-- Live creators matching preferences: ${liveCreators.length}
-- AI-recommended similar creators: ${recommendations.length}
-${similarCriteria ? `- Based on your top performers: ${similarCriteria.basedOn?.join(', ')}` : ''}
-
 RULES:
 - Write 2-3 SHORT bullet points (under 15 words each)
-- Focus on actionable discovery insights
-- If user has top performers, suggest finding similar creators
-- If creators are live, mention the opportunity
-- Be specific with numbers and platform names
+- Focus on insights from their performance data
+- If user has top performers, highlight what's working
+- If user is new, encourage setting up preferences
+- Be specific with names, platforms, and numbers
 - Format: "• [insight]" on each line
 
-Examples:
-• 12 Twitch streamers live now match your iGaming criteria
-• Found 8 creators similar to GamerPro with proven $22 CPA
-• Your best results come from TikTok - 15 new matches available
+Examples for user with data:
+• Your TikTok creators average $18 CPA - focus discovery there
+• GamerPro pattern: 50K-100K followers converts best for you
+• Consider expanding to Kick - similar audience to your top Twitch performers
+
+Examples for new user:
+• Set your target CPA and preferred platforms to get started
+• Add your first campaign to unlock AI-powered recommendations
 
 Write ONLY the bullets:`;
 
@@ -235,108 +187,83 @@ Write ONLY the bullets:`;
 }
 
 function buildFallbackDiscoverySummary(data) {
-  const { discoveryStats, liveCreators, recommendations, performanceHistory } = data;
+  const { performanceHistory, preferences } = data;
   const bullets = [];
 
-  if (liveCreators.length > 0) {
-    bullets.push(`• ${liveCreators.length} creators are live now matching your criteria`);
+  if (performanceHistory.topPerformers.length > 0) {
+    const bestPlatform = performanceHistory.patterns?.bestPlatform;
+    if (bestPlatform) {
+      bullets.push(`• Your best results come from ${bestPlatform} creators`);
+    }
+    if (performanceHistory.patterns?.avgCpa) {
+      bullets.push(`• Top performers average $${performanceHistory.patterns.avgCpa} CPA`);
+    }
+  } else {
+    bullets.push('• Add campaigns to unlock AI-powered discovery insights');
   }
 
-  if (recommendations.length > 0 && performanceHistory.topPerformers.length > 0) {
-    bullets.push(`• Found ${recommendations.length} creators similar to your top performers`);
+  if (!preferences.targetCpa) {
+    bullets.push('• Set your target CPA in preferences for better recommendations');
   }
 
-  if (discoveryStats?.totalCreators) {
-    bullets.push(`• ${discoveryStats.totalCreators.toLocaleString()} creators in database ready to explore`);
-  }
-
-  return bullets.join('\n') || '• Start discovering creators that match your campaign goals';
+  return bullets.join('\n') || '• Start tracking campaigns to get personalized discovery insights';
 }
 
 function generateDiscoveryActions(data) {
   const {
     preferences,
     performanceHistory,
-    discoveryStats,
-    liveCreators,
-    recommendations,
     similarCriteria,
     capabilities,
   } = data;
 
   const actions = [];
 
-  // Live creators action
-  if (liveCreators.length > 0) {
-    const topLive = liveCreators[0];
+  // Insight about top performers
+  if (performanceHistory.topPerformers.length >= 3 && similarCriteria) {
     actions.push({
-      id: 'discovery_live',
-      type: 'discovery',
+      id: 'discovery_pattern',
+      type: 'insight',
       priority: 'high',
-      title: `${liveCreators.length} creators are live now`,
-      description: `${topLive.displayName || topLive.name} streaming with ${topLive.currentViewers?.toLocaleString() || 'N/A'} viewers`,
+      title: `Your winning formula: ${similarCriteria.preferredPlatforms?.[0] || 'Unknown'} creators`,
+      description: `Based on ${similarCriteria.basedOn?.slice(0, 2).join(', ')}. Avg spend: $${similarCriteria.suggestedBudget?.min}-${similarCriteria.suggestedBudget?.max}`,
       options: [
         {
-          label: 'View live',
+          label: 'View top performers',
           action: 'navigate',
           variant: 'primary',
-          params: { url: 'https://app.envisioner.io/discovery?filter=live' },
+          params: { url: 'https://app.envisioner.io/influencers?sort=conversions' },
         },
         {
           label: 'Dismiss',
           action: 'dismiss',
           variant: 'ghost',
-          params: { action_id: 'discovery_live' },
+          params: { action_id: 'discovery_pattern' },
         },
       ],
     });
   }
 
-  // Similar creators action
-  if (recommendations.length > 0 && similarCriteria) {
+  // Underperformers to review
+  if (performanceHistory.underperformers.length > 0) {
     actions.push({
-      id: 'discovery_similar',
-      type: 'discovery',
+      id: 'discovery_underperformers',
+      type: 'warning',
       priority: 'medium',
-      title: `${recommendations.length} creators similar to your top performers`,
-      description: `Based on ${similarCriteria.basedOn?.slice(0, 2).join(', ')}. Target CPA: $${similarCriteria.targetCpa || 'N/A'}`,
+      title: `${performanceHistory.underperformers.length} creators need review`,
+      description: 'These creators have high CPA - consider pausing or replacing them',
       options: [
         {
-          label: 'View matches',
-          action: 'navigate',
-          variant: 'primary',
-          params: { url: 'https://app.envisioner.io/discovery?filter=similar' },
-        },
-        {
-          label: 'Dismiss',
-          action: 'dismiss',
-          variant: 'ghost',
-          params: { action_id: 'discovery_similar' },
-        },
-      ],
-    });
-  }
-
-  // Performance data opportunity
-  if (capabilities.canViewPerformance && discoveryStats?.performance?.creatorsWithData > 0) {
-    actions.push({
-      id: 'discovery_proven',
-      type: 'discovery',
-      priority: 'low',
-      title: 'Proven creators available',
-      description: `${discoveryStats.performance.creatorsWithData} creators with verified performance data`,
-      options: [
-        {
-          label: 'Browse proven',
+          label: 'Review creators',
           action: 'navigate',
           variant: 'secondary',
-          params: { url: 'https://app.envisioner.io/discovery?filter=proven' },
+          params: { url: 'https://app.envisioner.io/influencers?sort=cpa&order=desc' },
         },
         {
           label: 'Dismiss',
           action: 'dismiss',
           variant: 'ghost',
-          params: { action_id: 'discovery_proven' },
+          params: { action_id: 'discovery_underperformers' },
         },
       ],
     });
@@ -347,9 +274,9 @@ function generateDiscoveryActions(data) {
     actions.push({
       id: 'discovery_setup',
       type: 'setup',
-      priority: 'medium',
+      priority: performanceHistory.topPerformers.length === 0 ? 'high' : 'medium',
       title: 'Set your discovery preferences',
-      description: 'Configure target CPA, regions, and platforms for better recommendations',
+      description: 'Configure target CPA, regions, and platforms for better insights',
       options: [
         {
           label: 'Configure',
@@ -367,28 +294,54 @@ function generateDiscoveryActions(data) {
     });
   }
 
+  // Encourage adding more creators if few exist
+  if (performanceHistory.totalAnalyzed < 5) {
+    actions.push({
+      id: 'discovery_add_more',
+      type: 'suggestion',
+      priority: 'low',
+      title: 'Add more creators for better insights',
+      description: 'AI recommendations improve with more performance data',
+      options: [
+        {
+          label: 'Add creator',
+          action: 'navigate',
+          variant: 'secondary',
+          params: { url: 'https://app.envisioner.io/influencers/new' },
+        },
+        {
+          label: 'Dismiss',
+          action: 'dismiss',
+          variant: 'ghost',
+          params: { action_id: 'discovery_add_more' },
+        },
+      ],
+    });
+  }
+
   return actions;
 }
 
 function generateDiscoveryPrompts(data) {
-  const { preferences, performanceHistory, hasLive } = data;
+  const { preferences, performanceHistory } = data;
   const prompts = [];
 
   if (performanceHistory.topPerformers.length > 0) {
     const topName = performanceHistory.topPerformers[0].name;
-    prompts.push(`Find creators similar to ${topName}`);
+    prompts.push(`Why is ${topName} performing well?`);
+    prompts.push('What do my top performers have in common?');
   }
 
-  if (hasLive) {
-    prompts.push('Show me who is live right now');
+  if (performanceHistory.underperformers.length > 0) {
+    prompts.push('Why are some creators underperforming?');
   }
 
-  if (preferences.platforms?.length > 0) {
-    prompts.push(`Best ${preferences.platforms[0]} creators for iGaming`);
+  if (performanceHistory.patterns?.bestPlatform) {
+    prompts.push(`Should I focus more on ${performanceHistory.patterns.bestPlatform}?`);
   }
 
-  prompts.push('Who has the lowest CPA?');
-  prompts.push('Recommend creators for my budget');
+  prompts.push('What type of creators should I look for?');
+  prompts.push('How can I improve my CPA?');
 
   return prompts.slice(0, 3);
 }

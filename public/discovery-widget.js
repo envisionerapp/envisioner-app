@@ -1,7 +1,7 @@
 // Envisioner Discovery AI Sidebar Widget
-// For discovery.envisioner.io
+// For discovery.envisioner.io - Analyzes your performance data to help find new creators
 (function() {
-  const API_BASE = 'https://discovery.envisioner.io';
+  const API_BASE = 'https://ai.envisioner.io';
 
   let dismissedActions = [];
   try {
@@ -31,7 +31,6 @@
       currentPage: ctx.currentPage,
       viewing: ctx.viewing?.name || null,
       filters: ctx.filters || {},
-      selectedCreator: ctx.selectedCreator || null,
     };
   }
 
@@ -45,12 +44,6 @@
     return escapeHtml(text)
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#8B5CF6;text-decoration:none;font-weight:500;">$1</a>');
-  }
-
-  function formatNumber(num) {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toString();
   }
 
   function isOpenedAsPopup() {
@@ -113,7 +106,7 @@
       </style>
       <div class="env-discovery-loading">
         <div class="env-discovery-spinner"></div>
-        <span style="font-size:13px;">Loading Discovery AI...</span>
+        <span style="font-size:13px;">Analyzing your data...</span>
       </div>
     `;
 
@@ -122,7 +115,7 @@
     const toggle = document.createElement('button');
     toggle.id = 'env-discovery-toggle';
     toggle.style.cssText = 'display:none;position:fixed;bottom:20px;right:20px;width:48px;height:48px;background:linear-gradient(135deg,#8B5CF6 0%,#6366F1 100%);border:none;border-radius:12px;color:white;font-size:18px;cursor:pointer;z-index:101;box-shadow:0 4px 15px rgba(139,92,246,0.4);';
-    toggle.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>`;
+    toggle.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>`;
     toggle.onclick = () => sidebar.classList.toggle('open');
     document.body.appendChild(toggle);
 
@@ -145,14 +138,10 @@
   }
 
   function renderSidebar(sidebar, user, briefing, discoveryData) {
-    const suggestedPrompts = briefing.suggestedPrompts || ['Find creators similar to my top performers', 'Who is live right now?', 'Best iGaming creators on TikTok'];
+    const suggestedPrompts = briefing.suggestedPrompts || ['What do my top performers have in common?', 'How can I improve my CPA?', 'What type of creators should I look for?'];
 
     const activeActions = (briefing.actions || [])
-      .filter(a => a.options && Array.isArray(a.options) && !dismissedActions.includes(a.id))
-      .map(action => ({
-        ...action,
-        options: action.options.filter(opt => opt.action !== 'dismiss' || true)
-      }));
+      .filter(a => a.options && Array.isArray(a.options) && !dismissedActions.includes(a.id));
 
     sidebar.innerHTML = `
       <style>
@@ -443,15 +432,6 @@
           40% { transform: scale(1); opacity: 1; }
         }
 
-        .env-d-spinner {
-          width: 14px;
-          height: 14px;
-          border: 2px solid #2d2d44;
-          border-top-color: #8B5CF6;
-          border-radius: 50%;
-          animation: envspin 0.8s linear infinite;
-        }
-
         @media (max-width: 900px) {
           #env-discovery-sidebar {
             display: none;
@@ -467,19 +447,20 @@
       <div class="env-d-header">
         <div class="env-d-header-title">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <path d="M21 21l-4.35-4.35"></path>
+            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+            <path d="M2 17l10 5 10-5"></path>
+            <path d="M2 12l10 5 10-5"></path>
           </svg>
-          Discovery AI
+          Discovery Insights
           <span class="env-d-access-badge">${briefing.accessLevel || 'basic'}</span>
         </div>
-        <div class="env-d-header-sub">Find your next top performer</div>
+        <div class="env-d-header-sub">AI-powered analysis of your creator performance</div>
       </div>
 
       <div class="env-d-content">
         <div class="env-d-summary">
-          <div class="env-d-summary-label">AI Insights</div>
-          <p>${briefing.summary || 'Start exploring creators in our database.'}</p>
+          <div class="env-d-summary-label">Performance Insights</div>
+          <p>${briefing.summary || 'Add campaigns to unlock AI-powered insights.'}</p>
         </div>
 
         <div class="env-d-metrics">
@@ -493,13 +474,15 @@
 
         ${activeActions.length > 0 ? `
           <div>
-            <div class="env-d-section-label">Opportunities</div>
+            <div class="env-d-section-label">Recommendations</div>
             ${activeActions.map(action => `
               <div class="env-d-action ${action.priority}" data-action-id="${action.id}" style="margin-bottom: 10px;">
                 <div class="env-d-action-top">
                   <div class="env-d-action-icon">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      ${action.type === 'discovery' ? '<circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path>' : '<path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>'}
+                      ${action.type === 'insight' ? '<path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>' :
+                        action.type === 'warning' ? '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>' :
+                        '<circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path>'}
                     </svg>
                   </div>
                   <div class="env-d-action-content">
@@ -523,7 +506,7 @@
         ` : ''}
 
         <div class="env-d-chat-section">
-          <div class="env-d-section-label">Ask Discovery AI</div>
+          <div class="env-d-section-label">Ask AI</div>
           <div class="env-d-chat-box" id="env-d-conversation"></div>
         </div>
       </div>
@@ -533,7 +516,7 @@
           ${suggestedPrompts.map(p => `<button class="env-d-prompt">${escapeHtml(p)}</button>`).join('')}
         </div>
         <div class="env-d-input-wrap">
-          <input type="text" id="env-d-question" placeholder="Ask about creators, performance, recommendations..." autocomplete="off">
+          <input type="text" id="env-d-question" placeholder="Ask about your performance, patterns, recommendations..." autocomplete="off">
           <button id="env-d-send">Ask</button>
         </div>
       </div>
@@ -602,31 +585,6 @@
 
         const answer = data.success ? data.answer : 'Sorry, something went wrong.';
         conversation.innerHTML += `<div class="env-d-chat-msg assistant">${formatAnswer(answer)}</div>`;
-
-        // If creators were returned, show them
-        if (data.creators && data.creators.length > 0) {
-          const creatorsHtml = data.creators.slice(0, 5).map(c => {
-            const perf = c.performanceData ? `$${c.performanceData.avgCpa?.toFixed(0) || '?'} CPA` : '';
-            return `<div style="padding:8px;background:rgba(139,92,246,0.1);border-radius:6px;margin-top:6px;font-size:12px;">
-              <strong style="color:#8B5CF6;">${escapeHtml(c.displayName || c.name)}</strong>
-              <span style="color:#a0a0b0;margin-left:8px;">${c.platform} · ${formatNumber(c.followers || 0)} followers ${perf ? '· ' + perf : ''}</span>
-            </div>`;
-          }).join('');
-          conversation.innerHTML += `<div class="env-d-chat-msg assistant" style="padding-top:0;">${creatorsHtml}</div>`;
-        }
-
-        // If live creators were returned, show them
-        if (data.liveCreators && data.liveCreators.length > 0) {
-          const liveHtml = data.liveCreators.slice(0, 5).map(c => {
-            return `<div style="padding:8px;background:rgba(239,68,68,0.15);border-radius:6px;margin-top:6px;font-size:12px;border-left:3px solid #EF4444;">
-              <strong style="color:#EF4444;">LIVE</strong>
-              <strong style="color:#fff;margin-left:8px;">${escapeHtml(c.displayName || c.name)}</strong>
-              <span style="color:#a0a0b0;margin-left:8px;">${formatNumber(c.currentViewers || 0)} viewers</span>
-            </div>`;
-          }).join('');
-          conversation.innerHTML += `<div class="env-d-chat-msg assistant" style="padding-top:0;">${liveHtml}</div>`;
-        }
-
         conversation.scrollTop = conversation.scrollHeight;
       } catch (err) {
         const typing = sidebar.querySelector('#env-d-typing');
