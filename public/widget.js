@@ -64,8 +64,18 @@
     return rightEdge;
   }
 
+  function isOpenedAsPopup() {
+    // Check if running inside an iframe
+    if (window.self !== window.top) return true;
+    // Check if opened as a popup window
+    if (window.opener) return true;
+    return false;
+  }
+
   function createSidebar() {
     if (document.getElementById('env-sidebar')) return;
+    // Don't show widget if site is opened in a popup or iframe
+    if (isOpenedAsPopup()) return;
     const user = getUser();
     if (!user) return;
 
