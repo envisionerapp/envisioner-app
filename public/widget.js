@@ -52,9 +52,13 @@
     if (!isResizing || !sidebarElement) return;
     e.preventDefault();
 
-    const viewportWidth = window.innerWidth;
-    const maxWidth = viewportWidth * MAX_WIDTH_PERCENT;
-    const newWidth = viewportWidth - e.clientX;
+    // Get element's current right edge position
+    const rect = sidebarElement.getBoundingClientRect();
+    const rightEdge = rect.right;
+    const maxWidth = window.innerWidth * MAX_WIDTH_PERCENT;
+
+    // Calculate new width based on mouse position relative to right edge
+    const newWidth = rightEdge - e.clientX;
 
     if (newWidth < MIN_WIDTH / 2) {
       // Minimize when dragged past threshold
