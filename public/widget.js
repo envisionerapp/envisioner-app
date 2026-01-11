@@ -2,6 +2,12 @@
 (function() {
   const API_BASE = 'https://ai.envisioner.io';
 
+  // Check for embed mode from script tag or window config
+  const scriptTag = document.currentScript;
+  const embedMode = scriptTag?.getAttribute('data-embed') || window.ENVISIONER_EMBED_MODE || 'fixed';
+  // 'fixed' = locked to viewport (default)
+  // 'inline' = flows with page content, no fixed positioning
+
   let dismissedActions = [];
   try {
     dismissedActions = JSON.parse(sessionStorage.getItem('env_dismissed') || '[]');
@@ -136,26 +142,30 @@
     sidebar.id = 'env-sidebar';
     sidebarElement = sidebar; // Store globally for resize handlers
 
+    const isInline = embedMode === 'inline';
     sidebar.innerHTML = `
       <style>
         #env-sidebar {
-          position: fixed;
-          top: 0;
-          right: 0;
-          width: 420px;
-          height: 100vh;
+          position: ${isInline ? 'relative' : 'fixed'};
+          ${isInline ? '' : 'top: 0; right: 0;'}
+          width: ${isInline ? '100%' : '420px'};
+          ${isInline ? 'max-width: 100%;' : ''}
+          height: ${isInline ? 'auto' : '100vh'};
+          ${isInline ? 'min-height: 500px;' : ''}
           background: #FAFAFA;
-          border-left: 1px solid #E8E8E8;
+          ${isInline ? '' : 'border-left: 1px solid #E8E8E8;'}
+          ${isInline ? 'border: 1px solid #E8E8E8; border-radius: 12px;' : ''}
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
           display: flex;
           flex-direction: column;
-          z-index: 100;
+          z-index: ${isInline ? '1' : '100'};
           overflow: hidden;
         }
         #env-sidebar.resizing { user-select: none; }
         #env-sidebar.minimized .env-sidebar-content { opacity: 0; pointer-events: none; }
         #env-sidebar.minimized .env-minimized-indicator { display: flex; }
         #env-sidebar * { box-sizing: border-box; }
+        ${isInline ? '.env-resize-handle { display: none !important; }' : ''}
         .env-resize-handle {
           position: absolute;
           left: -4px;
@@ -356,25 +366,29 @@
     const circumference = 2 * Math.PI * 36;
     const offset = circumference - (briefing.score / 100) * circumference;
 
+    const isInline = embedMode === 'inline';
     sidebar.innerHTML = `
       <style>
         #env-sidebar {
-          position: fixed;
-          top: 0;
-          right: 0;
-          height: 100vh;
+          position: ${isInline ? 'relative' : 'fixed'};
+          ${isInline ? '' : 'top: 0; right: 0;'}
+          ${isInline ? 'width: 100%; max-width: 100%;' : ''}
+          height: ${isInline ? 'auto' : '100vh'};
+          ${isInline ? 'min-height: 600px;' : ''}
           background: #FAFAFA;
-          border-left: 1px solid #E8E8E8;
+          ${isInline ? '' : 'border-left: 1px solid #E8E8E8;'}
+          ${isInline ? 'border: 1px solid #E8E8E8; border-radius: 12px;' : ''}
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
           display: flex;
           flex-direction: column;
-          z-index: 9999;
+          z-index: ${isInline ? '1' : '9999'};
           overflow: hidden;
         }
         #env-sidebar.resizing { user-select: none; }
         #env-sidebar.minimized .env-sidebar-content { opacity: 0; pointer-events: none; }
         #env-sidebar.minimized .env-minimized-indicator { display: flex; }
         #env-sidebar * { box-sizing: border-box; }
+        ${isInline ? '.env-resize-handle { display: none !important; }' : ''}
         .env-resize-handle {
           position: absolute;
           left: -4px;
