@@ -64,8 +64,9 @@
 
   function getUser() {
     let user = null;
-    // Softr logged-in user
-    if (window.logged_in_user?.email) user = window.logged_in_user.email;
+    // Softr logged-in user (multiple formats)
+    if (window.logged_in_user?.softr_user_email) user = window.logged_in_user.softr_user_email;
+    else if (window.logged_in_user?.email) user = window.logged_in_user.email;
     else if (window.logged_in_user?.Email) user = window.logged_in_user.Email;
     // Softr alternative
     else if (window.softr?.user?.email) user = window.softr.user.email;
@@ -80,7 +81,7 @@
       if (token) { try { user = atob(token); } catch {} }
       if (!user) user = params.get('user') || null;
     }
-    console.log('[Envisioner] User detection:', user ? user : 'not found', { logged_in_user: window.logged_in_user, softr: window.softr });
+    console.log('[Envisioner] User:', user);
     return user;
   }
 
@@ -157,6 +158,9 @@
       console.log('[Envisioner] No user found, will retry...');
       return false; // Retry later
     }
+
+    const isInline = embedMode === 'inline';
+    console.log('[Envisioner] Creating sidebar for user:', user, 'mode:', embedMode);
 
     if (!document.getElementById('env-inter-font')) {
       const link = document.createElement('link');
@@ -307,47 +311,69 @@
     resizeHandle.addEventListener('mousedown', startResize);
     minimizedIndicator.addEventListener('mousedown', startResize);
 
-    document.body.appendChild(sidebar);
+    // For inline mode, insert at script location; for fixed mode, append to body
+    if (isInline) {
+      // Try to find a container specified by data-container, or insert after script tag
+      const containerId = scriptTag?.getAttribute('data-container');
+      const container = containerId ? document.getElementById(containerId) : null;
 
-    const toggle = document.createElement('button');
-    toggle.id = 'env-toggle';
-    toggle.style.cssText = 'display:none;position:fixed;bottom:20px;right:20px;width:48px;height:48px;background:#141C2E;border:none;border-radius:12px;color:white;font-size:18px;cursor:pointer;z-index:101;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
-    toggle.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
-    toggle.onclick = () => sidebar.classList.toggle('open');
-    document.body.appendChild(toggle);
+      if (container) {
+        container.appendChild(sidebar);
+        console.log('[Envisioner] Inserted into container:', containerId);
+      } else if (scriptTag && scriptTag.parentNode) {
+        scriptTag.parentNode.insertBefore(sidebar, scriptTag.nextSibling);
+        console.log('[Envisioner] Inserted after script tag');
+      } else {
+        document.body.appendChild(sidebar);
+        console.log('[Envisioner] Appended to body (fallback)');
+      }
+    } else {
+      document.body.appendChild(sidebar);
+    }
 
-    function positionSidebar() {
-      const viewportWidth = window.innerWidth;
-      if (viewportWidth <= 900) return;
-      const menuRight = getMenuRightEdge();
-      const padding = 40;
-      if (menuRight > 0) {
-        const availableWidth = viewportWidth - menuRight - padding;
-        if (availableWidth < 300) {
+    // Only add toggle button and positioning for fixed mode
+    if (!isInline) {
+      const toggle = document.createElement('button');
+      toggle.id = 'env-toggle';
+      toggle.style.cssText = 'display:none;position:fixed;bottom:20px;right:20px;width:48px;height:48px;background:#141C2E;border:none;border-radius:12px;color:white;font-size:18px;cursor:pointer;z-index:101;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+      toggle.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
+      toggle.onclick = () => sidebar.classList.toggle('open');
+      document.body.appendChild(toggle);
+
+      function positionSidebar() {
+        const viewportWidth = window.innerWidth;
+        if (viewportWidth <= 900) return;
+        const menuRight = getMenuRightEdge();
+        const padding = 40;
+        if (menuRight > 0) {
+          const availableWidth = viewportWidth - menuRight - padding;
+          if (availableWidth < 300) {
+            let sidebarWidth = Math.round(viewportWidth * 0.35);
+            sidebarWidth = Math.max(350, Math.min(500, sidebarWidth));
+            sidebar.style.display = 'flex';
+            sidebar.style.left = 'auto';
+            sidebar.style.right = '0';
+            sidebar.style.width = sidebarWidth + 'px';
+          } else {
+            sidebar.style.display = 'flex';
+            sidebar.style.left = (menuRight + padding) + 'px';
+            sidebar.style.right = '0';
+            sidebar.style.width = 'auto';
+          }
+        } else {
           let sidebarWidth = Math.round(viewportWidth * 0.35);
           sidebarWidth = Math.max(350, Math.min(500, sidebarWidth));
           sidebar.style.display = 'flex';
           sidebar.style.left = 'auto';
           sidebar.style.right = '0';
           sidebar.style.width = sidebarWidth + 'px';
-        } else {
-          sidebar.style.display = 'flex';
-          sidebar.style.left = (menuRight + padding) + 'px';
-          sidebar.style.right = '0';
-          sidebar.style.width = 'auto';
         }
-      } else {
-        let sidebarWidth = Math.round(viewportWidth * 0.35);
-        sidebarWidth = Math.max(350, Math.min(500, sidebarWidth));
-        sidebar.style.display = 'flex';
-        sidebar.style.left = 'auto';
-        sidebar.style.right = '0';
-        sidebar.style.width = sidebarWidth + 'px';
       }
+
+      setTimeout(positionSidebar, 500);
+      window.addEventListener('resize', positionSidebar);
     }
 
-    setTimeout(positionSidebar, 500);
-    window.addEventListener('resize', positionSidebar);
     loadBriefing(sidebar, user);
     return true; // Success
   }
