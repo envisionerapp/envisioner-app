@@ -2,11 +2,24 @@
 (function() {
   const API_BASE = 'https://ai.envisioner.io';
 
+  // Find script tag - document.currentScript is null when loaded async
+  let scriptTag = document.currentScript;
+  if (!scriptTag) {
+    // Fallback: find by src attribute
+    scriptTag = document.querySelector('script[src*="ai.envisioner.io/widget"]') ||
+                document.querySelector('script[src*="widget.js"]');
+  }
+
   // Check for embed mode from script tag or window config
-  const scriptTag = document.currentScript;
-  const embedMode = scriptTag?.getAttribute('data-embed') || window.ENVISIONER_EMBED_MODE || 'fixed';
-  // 'fixed' = locked to viewport (default)
-  // 'inline' = flows with page content, no fixed positioning
+  // Default to 'inline' if in an iframe (likely embedded in Softr/etc)
+  const isInIframe = window.self !== window.top;
+  const embedMode = scriptTag?.getAttribute('data-embed') ||
+                    window.ENVISIONER_EMBED_MODE ||
+                    (isInIframe ? 'inline' : 'fixed');
+  // 'fixed' = locked to viewport (default for standalone)
+  // 'inline' = flows with page content (default for iframes)
+
+  console.log('[Envisioner] Widget loading, iframe:', isInIframe, 'mode:', embedMode);
 
   let dismissedActions = [];
   try {
