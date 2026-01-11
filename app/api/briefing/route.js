@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDb, ensureBriefingsTable, getBriefing, saveBriefing, getUserData } from '@/lib/db';
+import { getDb, ensureBriefingsTable, getBriefing, saveBriefing, getUserData, getDiscoverySuggestions, getDiscoveryStats } from '@/lib/db';
 import { calculateScore, formatNumber } from '@/lib/score';
 import { detectActions } from '@/lib/actions';
 import { ensureBenchmarkTables, getBenchmarks, contributeToBenchmarks } from '@/lib/benchmarks';
@@ -109,8 +109,45 @@ async function generateBriefing(sql, userId, data, benchmarks, currentPage = '')
     { label: 'Views', value: formatNumber(totals.totalViews) },
   ];
 
+  // Get discovery suggestions based on user's platform preferences
+  const userPlatforms = Object.keys(platforms);
+  const discoverySuggestions = await getDiscoverySuggestions(userPlatforms, [], [], 5);
+  const discoveryStats = await getDiscoveryStats();
+
   // If no data, return onboarding briefing with actionable cards
   if (influencers.length === 0) {
+    // Include discovery suggestion for new users
+    const onboardingActions = [
+      {
+        id: 'onboarding_add_creator',
+        type: 'onboarding',
+        priority: 'high',
+        icon: 'plus',
+        title: 'Add your first creator',
+        description: 'Start tracking influencer performance and get AI insights.',
+        options: [
+          { label: 'Add creator', action: 'navigate', variant: 'primary', params: { url: '/influencers' } },
+          { label: 'Dismiss', action: 'dismiss', variant: 'ghost', params: { action_id: 'onboarding_add_creator' } }
+        ]
+      }
+    ];
+
+    // Add discovery suggestion if available
+    if (discoverySuggestions.length > 0) {
+      onboardingActions.push({
+        id: 'discovery_explore',
+        type: 'discovery',
+        priority: 'medium',
+        icon: 'search',
+        title: 'Discover new influencers',
+        description: `Browse ${discoveryStats?.total_creators?.toLocaleString() || 'thousands of'} verified creators across platforms.`,
+        options: [
+          { label: 'Explore Discovery', action: 'navigate', variant: 'primary', params: { url: 'https://app.envisioner.io/discovery' } },
+          { label: 'Dismiss', action: 'dismiss', variant: 'ghost', params: { action_id: 'discovery_explore' } }
+        ]
+      });
+    }
+
     return {
       score: 50,
       summary: `Welcome to Envisioner. Add your first creator to start tracking performance and get personalized insights.`,
@@ -119,21 +156,9 @@ async function generateBriefing(sql, userId, data, benchmarks, currentPage = '')
         { label: 'Campaigns', value: '0' },
         { label: 'Spent', value: '$0' },
       ],
-      actions: [
-        {
-          id: 'onboarding_add_creator',
-          type: 'onboarding',
-          priority: 'high',
-          icon: 'plus',
-          title: 'Add your first creator',
-          description: 'Start tracking influencer performance and get AI insights.',
-          options: [
-            { label: 'Add creator', action: 'navigate', variant: 'primary', params: { url: '/influencers' } },
-            { label: 'Dismiss', action: 'dismiss', variant: 'ghost', params: { action_id: 'onboarding_add_creator' } }
-          ]
-        }
-      ],
-      suggestedPrompts: ['How do I add my first creator?', 'What can Envisioner track?', 'How does the health score work?'],
+      actions: onboardingActions,
+      suggestedPrompts: ['How do I add my first creator?', 'Find me iGaming influencers', 'How does the health score work?'],
+      discoverySuggestions: discoverySuggestions.slice(0, 3),
     };
   }
 
@@ -141,10 +166,33 @@ async function generateBriefing(sql, userId, data, benchmarks, currentPage = '')
   const summary = await generateSummary(data, scoreResult, benchmarks);
 
   // Detect actionable recommendations with benchmark thresholds
-  const actions = detectActions(data, benchmarks);
+  let actions = detectActions(data, benchmarks);
+
+  // Add discovery action if user could benefit from new creators
+  const shouldSuggestDiscovery = (
+    noConversions.length > 2 || // Many underperformers
+    totals.totalConversions < 10 || // Low conversions
+    influencers.length < 5 // Small roster
+  );
+
+  if (shouldSuggestDiscovery && discoverySuggestions.length > 0) {
+    const topSuggestion = discoverySuggestions[0];
+    actions.push({
+      id: 'discovery_suggestion',
+      type: 'discovery',
+      priority: 'medium',
+      icon: 'sparkles',
+      title: 'Expand your creator roster',
+      description: `Found ${discoverySuggestions.length} creators matching your profile${topSuggestion ? `, like ${topSuggestion.displayName} (${formatNumber(topSuggestion.followers)} followers)` : ''}.`,
+      options: [
+        { label: 'View Suggestions', action: 'navigate', variant: 'primary', params: { url: 'https://app.envisioner.io/discovery' } },
+        { label: 'Dismiss', action: 'dismiss', variant: 'ghost', params: { action_id: 'discovery_suggestion' } }
+      ]
+    });
+  }
 
   // Generate AI-powered prompts based on data and current page
-  const suggestedPrompts = await generatePrompts(data, currentPage);
+  const suggestedPrompts = await generatePrompts(data, currentPage, discoverySuggestions);
 
   return {
     score,
@@ -152,6 +200,8 @@ async function generateBriefing(sql, userId, data, benchmarks, currentPage = '')
     metrics,
     actions,
     suggestedPrompts,
+    discoverySuggestions: discoverySuggestions.slice(0, 3),
+    discoveryStats,
   };
 }
 
@@ -366,7 +416,7 @@ function buildFallbackSummary(data, scoreResult, benchmarks) {
   return `You're tracking ${data.influencers.length} creators across ${data.campaigns.length} campaigns with ${formatNumber(totals.totalViews)} total views.`;
 }
 
-async function generatePrompts(data, currentPage) {
+async function generatePrompts(data, currentPage, discoverySuggestions = []) {
   const { totals, noContent, noConversions, topPerformers, platforms, influencers, campaigns } = data;
 
   // Build context about user's data
@@ -440,6 +490,7 @@ Write 3 questions:`;
   if (!hasConversions && totals.totalSpent > 0) fallback.push('Why am I not getting conversions?');
   if (bestPlatform) fallback.push(`Should I invest more in ${bestPlatform}?`);
   if (topCreator) fallback.push(`Should I book more with ${topCreator}?`);
+  if (discoverySuggestions.length > 0) fallback.push('Find me new creators like my top performers');
   fallback.push('What should I focus on today?');
   fallback.push('Which creators have the best ROI?');
 

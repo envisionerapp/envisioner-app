@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDb, getUserData } from '@/lib/db';
+import { getDb, getUserData, getDiscoverySuggestions, getDiscoveryStats } from '@/lib/db';
 import { formatNumber } from '@/lib/score';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -29,11 +29,17 @@ export async function POST(request) {
     const sql = getDb();
     const data = await getUserData(sql, user);
 
-    const answer = await generateAnswer(data, question, context);
+    // Get discovery data for questions about new influencers
+    const userPlatforms = Object.keys(data.platforms || {});
+    const discoverySuggestions = await getDiscoverySuggestions(userPlatforms, [], [], 10);
+    const discoveryStats = await getDiscoveryStats();
+
+    const answer = await generateAnswer(data, question, context, discoverySuggestions, discoveryStats);
 
     return NextResponse.json({
       success: true,
       answer,
+      discoverySuggestions: discoverySuggestions.slice(0, 3),
     }, { headers: corsHeaders });
 
   } catch (error) {
@@ -42,7 +48,7 @@ export async function POST(request) {
   }
 }
 
-async function generateAnswer(data, question, context) {
+async function generateAnswer(data, question, context, discoverySuggestions = [], discoveryStats = null) {
   const { user, campaigns, influencers, totals, platforms, noContent, noConversions, topPerformers, historicalTrends } = data;
 
   // Calculate advanced metrics
@@ -120,10 +126,19 @@ PAGES (link when relevant):
 - [Influencers](https://app.envisioner.io/influencers): View and manage creators
 - [Campaigns](https://app.envisioner.io/campaigns): Organize creators by client/project
 - [Deliverables](https://app.envisioner.io/deliverables): Track content posts
+- [Discovery](https://app.envisioner.io/discovery): Find new influencers to work with
 - [Conversions Setup](https://app.envisioner.io/postbacks): Setup manual conversion tracking and postbacks
 - [Subscription](https://app.envisioner.io/subscription): Billing and plan management
 - [FAQ](https://app.envisioner.io/faq): FAQs and account settings (change name, recover password)
 
+${discoverySuggestions.length > 0 ? `
+DISCOVERY DATABASE (${discoveryStats?.total_creators?.toLocaleString() || 'thousands of'} verified creators available):
+Available influencers matching your profile:
+${discoverySuggestions.slice(0, 5).map(s =>
+  `- ${s.displayName} (${s.platform}): ${formatNumber(s.followers)} followers, ${s.avgViewers ? formatNumber(s.avgViewers) + ' avg viewers, ' : ''}${s.engagementRate ? s.engagementRate.toFixed(1) + '% engagement' : ''}${s.gamblingCompatible ? ', iGaming compatible' : ''}${s.historicalCpa ? `, historical $${s.historicalCpa} CPA` : ''}`
+).join('\n')}
+Link: [Explore Discovery](https://app.envisioner.io/discovery)
+` : ''}
 ---
 
 QUESTION: ${question}
@@ -133,6 +148,7 @@ Think about what the data AND TRENDS reveal, then answer with:
 - Trend context when relevant (e.g., "up 40% this week", "cooling off")
 - Strategic insight (not obvious observations)
 - If they're viewing something specific, reference it
+- If asking about NEW creators/influencers, suggest from the Discovery database with names
 - Link to relevant page if helpful
 - 2-4 sentences max
 
