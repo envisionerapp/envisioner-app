@@ -1,5 +1,11 @@
 // Envisioner AI Sidebar Widget
 (function() {
+  'use strict';
+
+  try {
+    console.log('[Envisioner] Script starting...');
+  } catch(e) {}
+
   const API_BASE = 'https://ai.envisioner.io';
 
   // Find script tag - document.currentScript is null when loaded async
@@ -12,14 +18,20 @@
 
   // Check for embed mode from script tag or window config
   // Default to 'inline' if in an iframe (likely embedded in Softr/etc)
-  const isInIframe = window.self !== window.top;
+  let isInIframe = false;
+  try {
+    isInIframe = window.self !== window.top;
+  } catch(e) {
+    isInIframe = true; // Cross-origin iframe
+  }
+
   const embedMode = scriptTag?.getAttribute('data-embed') ||
                     window.ENVISIONER_EMBED_MODE ||
                     (isInIframe ? 'inline' : 'fixed');
   // 'fixed' = locked to viewport (default for standalone)
   // 'inline' = flows with page content (default for iframes)
 
-  console.log('[Envisioner] Widget loading, iframe:', isInIframe, 'mode:', embedMode);
+  console.log('[Envisioner] Widget init, iframe:', isInIframe, 'mode:', embedMode, 'scriptTag:', !!scriptTag);
 
   let dismissedActions = [];
   try {
@@ -324,25 +336,21 @@
     resizeHandle.addEventListener('mousedown', startResize);
     minimizedIndicator.addEventListener('mousedown', startResize);
 
-    // For inline mode, insert at script location; for fixed mode, append to body
-    if (isInline) {
-      // Try to find a container specified by data-container, or insert after script tag
-      const containerId = scriptTag?.getAttribute('data-container');
-      const container = containerId ? document.getElementById(containerId) : null;
+    // Insert the sidebar
+    const containerId = scriptTag?.getAttribute('data-container');
+    const container = containerId ? document.getElementById(containerId) : null;
 
-      if (container) {
-        container.appendChild(sidebar);
-        console.log('[Envisioner] Inserted into container:', containerId);
-      } else if (scriptTag && scriptTag.parentNode) {
-        scriptTag.parentNode.insertBefore(sidebar, scriptTag.nextSibling);
-        console.log('[Envisioner] Inserted after script tag');
-      } else {
-        document.body.appendChild(sidebar);
-        console.log('[Envisioner] Appended to body (fallback)');
-      }
+    if (container) {
+      container.appendChild(sidebar);
+      console.log('[Envisioner] Inserted into container:', containerId);
     } else {
       document.body.appendChild(sidebar);
+      console.log('[Envisioner] Appended to body');
     }
+
+    // Verify insertion
+    const inserted = document.getElementById('env-sidebar');
+    console.log('[Envisioner] Sidebar in DOM:', !!inserted, 'display:', inserted?.style?.display);
 
     // Only add toggle button and positioning for fixed mode
     if (!isInline) {
@@ -392,13 +400,19 @@
   }
 
   async function loadBriefing(sidebar, user) {
+    console.log('[Envisioner] Loading briefing for:', user);
     try {
       const currentPage = encodeURIComponent(window.location.pathname);
-      const res = await fetch(`${API_BASE}/api/briefing?user=${encodeURIComponent(user)}&page=${currentPage}`);
+      const url = `${API_BASE}/api/briefing?user=${encodeURIComponent(user)}&page=${currentPage}`;
+      console.log('[Envisioner] Fetching:', url);
+      const res = await fetch(url);
+      console.log('[Envisioner] Response status:', res.status);
       const data = await res.json();
+      console.log('[Envisioner] Response data:', data.success ? 'success' : 'failed');
       if (!data.success) throw new Error(data.error);
       renderSidebar(sidebar, user, data.briefing);
     } catch (err) {
+      console.error('[Envisioner] Load error:', err);
       sidebar.innerHTML = `
         <div style="padding:24px;color:#DC2626;font-size:13px;text-align:center;">
           <p style="margin:0;">Could not load: ${err.message}</p>
@@ -1206,20 +1220,32 @@
   }
 
   function init() {
-    // Try to create sidebar
-    if (!createSidebar()) {
-      // If no user found, retry a few times (Softr may load user data async)
-      let retries = 0;
-      const maxRetries = 5;
-      const retryInterval = setInterval(() => {
-        retries++;
-        if (createSidebar() || retries >= maxRetries) {
-          clearInterval(retryInterval);
-        }
-      }, 500);
+    console.log('[Envisioner] Init called, readyState:', document.readyState);
+    try {
+      // Try to create sidebar
+      if (!createSidebar()) {
+        // If no user found, retry a few times (Softr may load user data async)
+        let retries = 0;
+        const maxRetries = 10;
+        console.log('[Envisioner] No user yet, will retry...');
+        const retryInterval = setInterval(() => {
+          retries++;
+          console.log('[Envisioner] Retry', retries);
+          if (createSidebar() || retries >= maxRetries) {
+            clearInterval(retryInterval);
+            if (retries >= maxRetries) {
+              console.log('[Envisioner] Max retries reached, giving up');
+            }
+          }
+        }, 1000);
+      }
+    } catch (err) {
+      console.error('[Envisioner] Init error:', err);
     }
   }
 
+  // Run init
+  console.log('[Envisioner] Document readyState:', document.readyState);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
