@@ -652,24 +652,6 @@
           background: #fff;
           color: #141C2E;
         }
-        .env-chat-msg.summary {
-          background: linear-gradient(135deg, #141C2E 0%, #1e293b 100%);
-          color: #fff;
-          border-radius: 10px 10px 0 0;
-        }
-        .env-chat-msg.summary .env-summary-label {
-          font-size: 10px;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          color: #FF6B35;
-          margin-bottom: 8px;
-        }
-        .env-chat-msg.summary p {
-          margin: 0;
-          color: rgba(255,255,255,0.9);
-          line-height: 1.6;
-        }
 
         .env-input-area {
           padding: 12px 16px;
@@ -929,10 +911,7 @@
         <div class="env-chat-section">
           <div class="env-section-label">Ask Envisioner AI</div>
           <div class="env-chat-box" id="env-conversation">
-            <div class="env-chat-msg summary">
-              <div class="env-summary-label">AI Summary</div>
-              <p>${briefing.summary}</p>
-            </div>
+            <div class="env-chat-msg assistant">${briefing.summary}</div>
           </div>
         </div>
       </div>
