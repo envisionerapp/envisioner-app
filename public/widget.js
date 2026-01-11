@@ -199,7 +199,6 @@
     sidebar.id = 'env-sidebar';
     sidebarElement = sidebar; // Store globally for resize handlers
 
-    const isInline = embedMode === 'inline';
     sidebar.innerHTML = `
       <style>
         #env-sidebar {
