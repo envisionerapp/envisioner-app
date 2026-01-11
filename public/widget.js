@@ -514,23 +514,23 @@
           letter-spacing: 1px;
         }
 
-        .env-header {
-          padding: 20px;
+        .env-footer {
+          padding: 12px 16px;
           background: #fff;
-          border-bottom: 1px solid #E8E8E8;
+          border-top: 1px solid #E8E8E8;
         }
 
         .env-score-section {
           display: flex;
           align-items: center;
-          justify-content: flex-end;
-          gap: 16px;
+          justify-content: space-between;
+          gap: 12px;
         }
 
         .env-score-ring {
           position: relative;
-          width: 80px;
-          height: 80px;
+          width: 60px;
+          height: 60px;
         }
         .env-score-ring svg {
           transform: rotate(-90deg);
@@ -538,15 +538,15 @@
         .env-score-ring-bg {
           fill: none;
           stroke: #E8E8E8;
-          stroke-width: 6;
+          stroke-width: 5;
         }
         .env-score-ring-progress {
           fill: none;
           stroke: ${grade.color};
-          stroke-width: 6;
+          stroke-width: 5;
           stroke-linecap: round;
-          stroke-dasharray: ${circumference};
-          stroke-dashoffset: ${offset};
+          stroke-dasharray: ${2 * Math.PI * 26};
+          stroke-dashoffset: ${2 * Math.PI * 26 - (briefing.score / 100) * 2 * Math.PI * 26};
           transition: stroke-dashoffset 0.6s ease;
         }
         .env-score-value {
@@ -554,22 +554,22 @@
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          font-size: 22px;
+          font-size: 16px;
           font-weight: 700;
           color: #141C2E;
         }
 
         .env-score-info {
-          text-align: right;
+          text-align: left;
         }
         .env-score-grade {
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 600;
           color: ${grade.color};
-          margin-bottom: 4px;
+          margin-bottom: 2px;
         }
         .env-score-label {
-          font-size: 12px;
+          font-size: 11px;
           color: #666;
         }
 
@@ -720,61 +720,66 @@
         }
 
         .env-input-area {
-          padding: 12px 16px;
-          background: #fff;
-          border-top: 1px solid #E8E8E8;
+          padding: 16px;
+          background: linear-gradient(135deg, #FF6B35 0%, #e55a2b 100%);
+          border-bottom: 1px solid #E8E8E8;
+        }
+        .env-input-area .env-section-label {
+          color: rgba(255,255,255,0.9);
+          font-size: 12px;
+          margin-bottom: 10px;
         }
         .env-input-wrap {
           display: flex;
           gap: 8px;
-          background: #F9FAFB;
-          border: 1px solid #E8E8E8;
-          border-radius: 8px;
-          padding: 6px;
+          background: #fff;
+          border: none;
+          border-radius: 10px;
+          padding: 8px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .env-input-wrap input {
           flex: 1;
           border: none;
           outline: none;
-          font-size: 13px;
-          padding: 8px;
+          font-size: 14px;
+          padding: 10px 12px;
           background: transparent;
           font-family: inherit;
         }
         .env-input-wrap input::placeholder { color: #9CA3AF; }
         .env-input-wrap button {
-          background: #FF6B35;
+          background: #141C2E;
           border: none;
-          border-radius: 6px;
-          padding: 8px 14px;
+          border-radius: 8px;
+          padding: 10px 18px;
           color: #fff;
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 600;
           cursor: pointer;
         }
-        .env-input-wrap button:hover { background: #e55a2b; }
+        .env-input-wrap button:hover { background: #2a3a52; }
         .env-input-wrap button:disabled { background: #9CA3AF; cursor: not-allowed; }
 
         .env-prompts {
           display: flex;
-          flex-direction: column;
+          flex-wrap: wrap;
           gap: 6px;
-          margin-bottom: 10px;
+          margin-top: 10px;
         }
         .env-prompt {
-          background: #F9FAFB;
-          border: 1px solid #E8E8E8;
-          border-radius: 6px;
-          padding: 8px 12px;
-          font-size: 12px;
-          color: #374151;
+          background: rgba(255,255,255,0.2);
+          border: 1px solid rgba(255,255,255,0.3);
+          border-radius: 20px;
+          padding: 6px 12px;
+          font-size: 11px;
+          color: #fff;
           cursor: pointer;
           text-align: left;
-          transition: background 0.15s, border-color 0.15s;
+          transition: background 0.15s;
         }
         .env-prompt:hover {
-          background: #F3F4F6;
-          border-color: #FF6B35;
+          background: rgba(255,255,255,0.3);
         }
 
         .env-typing {
@@ -923,30 +928,22 @@
       </div>
 
       <div class="env-sidebar-content">
-      <div class="env-header">
-        <div class="env-score-section">
-          <div class="env-score-info">
-            <div class="env-score-grade">${grade.label}</div>
-            <div class="env-score-label">Campaign Health Score</div>
-          </div>
-          <div class="env-score-ring">
-            <svg width="80" height="80" viewBox="0 0 80 80">
-              <circle class="env-score-ring-bg" cx="40" cy="40" r="36"/>
-              <circle class="env-score-ring-progress" cx="40" cy="40" r="36"/>
-            </svg>
-            <div class="env-score-value">${briefing.score}</div>
-          </div>
+      <div class="env-input-area">
+        <div class="env-section-label" style="margin-bottom:8px;">Ask Envisioner AI</div>
+        <div class="env-input-wrap">
+          <input type="text" id="env-question" placeholder="Ask about campaigns, creators, performance..." autocomplete="off">
+          <button id="env-send">Send</button>
+        </div>
+        <div class="env-prompts">
+          ${suggestedPrompts.map(p => `<button class="env-prompt">${escapeHtml(p)}</button>`).join('')}
         </div>
       </div>
 
       <div class="env-content">
-        <div class="env-metrics">
-          ${briefing.metrics.map(m => `
-            <div class="env-metric">
-              <div class="env-metric-value">${m.value}</div>
-              <div class="env-metric-label">${m.label}</div>
-            </div>
-          `).join('')}
+        <div class="env-chat-section">
+          <div class="env-chat-box" id="env-conversation">
+            <div class="env-chat-msg assistant">${briefing.summary}</div>
+          </div>
         </div>
 
         ${activeActions.length > 0 ? `
@@ -974,21 +971,29 @@
           `).join('')}
         ` : ''}
 
-        <div class="env-chat-section">
-          <div class="env-section-label">Ask Envisioner AI</div>
-          <div class="env-chat-box" id="env-conversation">
-            <div class="env-chat-msg assistant">${briefing.summary}</div>
-          </div>
+        <div class="env-metrics">
+          ${briefing.metrics.map(m => `
+            <div class="env-metric">
+              <div class="env-metric-value">${m.value}</div>
+              <div class="env-metric-label">${m.label}</div>
+            </div>
+          `).join('')}
         </div>
       </div>
 
-      <div class="env-input-area">
-        <div class="env-prompts">
-          ${suggestedPrompts.map(p => `<button class="env-prompt">${escapeHtml(p)}</button>`).join('')}
-        </div>
-        <div class="env-input-wrap">
-          <input type="text" id="env-question" placeholder="Ask about campaigns, creators, performance..." autocomplete="off">
-          <button id="env-send">Send</button>
+      <div class="env-footer">
+        <div class="env-score-section">
+          <div class="env-score-info">
+            <div class="env-score-grade">${grade.label}</div>
+            <div class="env-score-label">Health Score</div>
+          </div>
+          <div class="env-score-ring">
+            <svg width="60" height="60" viewBox="0 0 60 60">
+              <circle class="env-score-ring-bg" cx="30" cy="30" r="26"/>
+              <circle class="env-score-ring-progress" cx="30" cy="30" r="26"/>
+            </svg>
+            <div class="env-score-value">${briefing.score}</div>
+          </div>
         </div>
       </div>
       </div>
