@@ -46,8 +46,30 @@
   let dragStartX = 0;
   let dragStartWidth = 0;
   const MIN_WIDTH = 280;
+  const DEFAULT_WIDTH = 340;
   const MINIMIZED_WIDTH = 52;
   const MAX_WIDTH_PERCENT = 0.85;
+
+  // Load saved width from localStorage
+  function getSavedWidth() {
+    try {
+      const saved = localStorage.getItem('env_sidebar_width');
+      if (saved) {
+        const width = parseInt(saved, 10);
+        if (width >= MIN_WIDTH && width <= window.innerWidth * MAX_WIDTH_PERCENT) {
+          return width;
+        }
+      }
+    } catch (e) {}
+    return DEFAULT_WIDTH;
+  }
+
+  // Save width to localStorage
+  function saveWidth(width) {
+    try {
+      localStorage.setItem('env_sidebar_width', width.toString());
+    } catch (e) {}
+  }
 
   // Global mouse handlers for drag resize
   document.addEventListener('mousemove', function(e) {
@@ -86,6 +108,10 @@
       sidebarElement.classList.remove('resizing');
       const handle = sidebarElement.querySelector('.env-resize-handle');
       if (handle) handle.classList.remove('active');
+      // Save the current width
+      if (currentWidth && !isMinimized) {
+        saveWidth(currentWidth);
+      }
     }
   });
 
@@ -187,12 +213,14 @@
     sidebar.id = 'env-sidebar';
     sidebarElement = sidebar; // Store globally for resize handlers
 
+    const savedWidth = getSavedWidth();
+    currentWidth = savedWidth;
+    sidebar.style.width = savedWidth + 'px'; // Set as inline style so it persists
     sidebar.innerHTML = `
       <style>
         #env-sidebar {
           position: ${isInline ? 'relative' : 'fixed'};
           ${isInline ? '' : 'top: 0; right: 0;'}
-          width: ${isInline ? '420px' : '420px'};
           ${isInline ? 'max-width: 100%;' : ''}
           height: ${isInline ? 'auto' : '100vh'};
           ${isInline ? 'min-height: 500px;' : ''}
