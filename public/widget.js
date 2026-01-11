@@ -63,7 +63,12 @@
   }
 
   function getUser() {
+    // Check script tag data attribute first (for Softr)
+    if (scriptTag?.getAttribute('data-user')) return scriptTag.getAttribute('data-user');
+    // Check window config
+    if (window.ENVISIONER_USER) return window.ENVISIONER_USER;
     if (window.logged_in_user?.email) return window.logged_in_user.email;
+    // Check URL params
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     if (token) { try { return atob(token); } catch {} }
@@ -125,10 +130,13 @@
 
   function createSidebar() {
     if (document.getElementById('env-sidebar')) return;
-    // Don't show widget if site is opened in a popup or iframe
-    if (isOpenedAsPopup()) return;
+    // Don't show widget if site is opened in a popup or iframe (unless inline mode)
+    if (embedMode !== 'inline' && isOpenedAsPopup()) return;
     const user = getUser();
-    if (!user) return;
+    if (!user) {
+      console.warn('[Envisioner] No user found. Set window.logged_in_user.email or pass ?user= param');
+      return;
+    }
 
     if (!document.getElementById('env-inter-font')) {
       const link = document.createElement('link');
