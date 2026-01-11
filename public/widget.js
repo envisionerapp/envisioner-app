@@ -63,12 +63,16 @@
   }
 
   function getUser() {
-    // Check script tag data attribute first (for Softr)
-    if (scriptTag?.getAttribute('data-user')) return scriptTag.getAttribute('data-user');
-    // Check window config
-    if (window.ENVISIONER_USER) return window.ENVISIONER_USER;
+    // Softr logged-in user
     if (window.logged_in_user?.email) return window.logged_in_user.email;
-    // Check URL params
+    if (window.logged_in_user?.Email) return window.logged_in_user.Email;
+    // Softr alternative
+    if (window.softr?.user?.email) return window.softr.user.email;
+    // Window config
+    if (window.ENVISIONER_USER) return window.ENVISIONER_USER;
+    // Script tag attribute
+    if (scriptTag?.getAttribute('data-user')) return scriptTag.getAttribute('data-user');
+    // URL params
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     if (token) { try { return atob(token); } catch {} }
@@ -129,13 +133,12 @@
   }
 
   function createSidebar() {
-    if (document.getElementById('env-sidebar')) return;
+    if (document.getElementById('env-sidebar')) return true; // Already created
     // Don't show widget if site is opened in a popup or iframe (unless inline mode)
-    if (embedMode !== 'inline' && isOpenedAsPopup()) return;
+    if (embedMode !== 'inline' && isOpenedAsPopup()) return true; // Skip but don't retry
     const user = getUser();
     if (!user) {
-      console.warn('[Envisioner] No user found. Set window.logged_in_user.email or pass ?user= param');
-      return;
+      return false; // Retry later
     }
 
     if (!document.getElementById('env-inter-font')) {
@@ -329,6 +332,7 @@
     setTimeout(positionSidebar, 500);
     window.addEventListener('resize', positionSidebar);
     loadBriefing(sidebar, user);
+    return true; // Success
   }
 
   async function loadBriefing(sidebar, user) {
@@ -1145,9 +1149,24 @@
     document.body.appendChild(modal);
   }
 
+  function init() {
+    // Try to create sidebar
+    if (!createSidebar()) {
+      // If no user found, retry a few times (Softr may load user data async)
+      let retries = 0;
+      const maxRetries = 5;
+      const retryInterval = setInterval(() => {
+        retries++;
+        if (createSidebar() || retries >= maxRetries) {
+          clearInterval(retryInterval);
+        }
+      }, 500);
+    }
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', createSidebar);
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    createSidebar();
+    init();
   }
 })();
