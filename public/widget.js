@@ -501,28 +501,6 @@
           flex-direction: column;
         }
 
-        .env-summary {
-          background: #141C2E;
-          color: #fff;
-          padding: 16px;
-          border-radius: 12px;
-          margin-bottom: 16px;
-        }
-        .env-summary-label {
-          font-size: 10px;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          color: #FF6B35;
-          margin-bottom: 8px;
-        }
-        .env-summary p {
-          font-size: 13px;
-          line-height: 1.6;
-          margin: 0;
-          color: rgba(255,255,255,0.9);
-        }
-
         .env-metrics {
           display: flex;
           gap: 8px;
@@ -632,11 +610,11 @@
         .env-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .env-chat-section {
-          margin-top: 16px;
+          margin-top: 12px;
           flex: 1;
           display: flex;
           flex-direction: column;
-          min-height: 0;
+          min-height: 200px;
         }
         .env-chat-box {
           background: #fff;
@@ -644,16 +622,40 @@
           border-radius: 10px;
           flex: 1;
           overflow-y: auto;
+          min-height: 180px;
         }
         .env-chat-msg {
-          padding: 10px 12px;
+          padding: 12px 14px;
           font-size: 13px;
-          line-height: 1.4;
-          border-bottom: 1px solid #F3F4F6;
+          line-height: 1.5;
         }
-        .env-chat-msg:last-child { border-bottom: none; }
-        .env-chat-msg.user { background: #F9FAFB; color: #374151; }
-        .env-chat-msg.assistant { background: #fff; color: #141C2E; }
+        .env-chat-msg.user {
+          background: #F9FAFB;
+          color: #374151;
+          border-bottom: 1px solid #E8E8E8;
+        }
+        .env-chat-msg.assistant {
+          background: #fff;
+          color: #141C2E;
+        }
+        .env-chat-msg.summary {
+          background: linear-gradient(135deg, #141C2E 0%, #1e293b 100%);
+          color: #fff;
+          border-radius: 10px 10px 0 0;
+        }
+        .env-chat-msg.summary .env-summary-label {
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          color: #FF6B35;
+          margin-bottom: 8px;
+        }
+        .env-chat-msg.summary p {
+          margin: 0;
+          color: rgba(255,255,255,0.9);
+          line-height: 1.6;
+        }
 
         .env-input-area {
           padding: 12px 16px;
@@ -876,11 +878,6 @@
       </div>
 
       <div class="env-content">
-        <div class="env-summary">
-          <div class="env-summary-label">AI Summary</div>
-          <p>${briefing.summary}</p>
-        </div>
-
         <div class="env-metrics">
           ${briefing.metrics.map(m => `
             <div class="env-metric">
@@ -917,7 +914,12 @@
 
         <div class="env-chat-section">
           <div class="env-section-label">Ask Envisioner AI</div>
-          <div class="env-chat-box" id="env-conversation"></div>
+          <div class="env-chat-box" id="env-conversation">
+            <div class="env-chat-msg summary">
+              <div class="env-summary-label">AI Summary</div>
+              <p>${briefing.summary}</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -971,8 +973,11 @@
       input.value = '';
       sendBtn.disabled = true;
 
-      conversation.innerHTML += `<div class="env-chat-msg user">${escapeHtml(question)}</div>`;
-      conversation.innerHTML += `<div class="env-typing" id="env-typing"><span></span><span></span><span></span></div>`;
+      // Replace content with user question and loading indicator
+      conversation.innerHTML = `
+        <div class="env-chat-msg user">${escapeHtml(question)}</div>
+        <div class="env-typing" id="env-typing"><span></span><span></span><span></span></div>
+      `;
       conversation.scrollTop = conversation.scrollHeight;
 
       try {
@@ -983,15 +988,18 @@
           body: JSON.stringify({ user, question, context: buildApiContext(ctx) })
         });
         const data = await res.json();
-        const typing = sidebar.querySelector('#env-typing');
-        if (typing) typing.remove();
         const answer = data.success ? data.answer : 'Sorry, something went wrong.';
-        conversation.innerHTML += `<div class="env-chat-msg assistant">${formatAnswer(answer)}</div>`;
+        // Replace with user question and AI answer
+        conversation.innerHTML = `
+          <div class="env-chat-msg user">${escapeHtml(question)}</div>
+          <div class="env-chat-msg assistant">${formatAnswer(answer)}</div>
+        `;
         conversation.scrollTop = conversation.scrollHeight;
       } catch (err) {
-        const typing = sidebar.querySelector('#env-typing');
-        if (typing) typing.remove();
-        conversation.innerHTML += `<div class="env-chat-msg assistant">Could not connect.</div>`;
+        conversation.innerHTML = `
+          <div class="env-chat-msg user">${escapeHtml(question)}</div>
+          <div class="env-chat-msg assistant">Could not connect. Please try again.</div>
+        `;
       }
       sendBtn.disabled = false;
       input.focus();
