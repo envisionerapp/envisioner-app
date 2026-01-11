@@ -7,6 +7,13 @@
     dismissedActions = JSON.parse(sessionStorage.getItem('env_dismissed') || '[]');
   } catch {}
 
+  // Resize state
+  let isResizing = false;
+  let isMinimized = false;
+  let sidebarWidth = null; // null = auto
+  const MIN_WIDTH = 320;
+  const MAX_WIDTH_PERCENT = 0.85;
+
   function saveDismissed() {
     sessionStorage.setItem('env_dismissed', JSON.stringify(dismissedActions));
   }
@@ -104,8 +111,97 @@
           flex-direction: column;
           z-index: 100;
           overflow: hidden;
+          transition: width 0.2s ease, opacity 0.2s ease;
         }
+        #env-sidebar.resizing { transition: none; user-select: none; }
+        #env-sidebar.minimized { width: 48px !important; min-width: 48px !important; }
         #env-sidebar * { box-sizing: border-box; }
+        .env-resize-handle {
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 6px;
+          cursor: ew-resize;
+          background: transparent;
+          z-index: 101;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .env-resize-handle:hover, .env-resize-handle.active {
+          background: rgba(255, 107, 53, 0.15);
+        }
+        .env-resize-grip {
+          width: 3px;
+          height: 40px;
+          background: #ccc;
+          border-radius: 2px;
+          transition: background 0.15s;
+        }
+        .env-resize-handle:hover .env-resize-grip,
+        .env-resize-handle.active .env-resize-grip {
+          background: #FF6B35;
+        }
+        .env-minimize-btn {
+          position: absolute;
+          left: 10px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 28px;
+          height: 28px;
+          background: #fff;
+          border: 1px solid #E8E8E8;
+          border-radius: 6px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 102;
+          transition: background 0.15s, border-color 0.15s;
+        }
+        .env-minimize-btn:hover {
+          background: #F9FAFB;
+          border-color: #FF6B35;
+        }
+        .env-minimize-btn svg {
+          width: 14px;
+          height: 14px;
+          color: #666;
+          transition: transform 0.2s, color 0.15s;
+        }
+        .env-minimize-btn:hover svg { color: #FF6B35; }
+        #env-sidebar.minimized .env-minimize-btn svg { transform: rotate(180deg); }
+        .env-sidebar-content { display: flex; flex-direction: column; height: 100%; }
+        #env-sidebar.minimized .env-sidebar-content { opacity: 0; pointer-events: none; }
+        .env-minimized-indicator {
+          display: none;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+          cursor: pointer;
+        }
+        #env-sidebar.minimized .env-minimized-indicator { display: flex; }
+        .env-minimized-icon {
+          width: 28px;
+          height: 28px;
+          background: linear-gradient(135deg, #FF6B35, #e55a2b);
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 8px;
+        }
+        .env-minimized-icon svg { width: 16px; height: 16px; color: #fff; }
+        .env-minimized-text {
+          writing-mode: vertical-rl;
+          text-orientation: mixed;
+          font-size: 11px;
+          font-weight: 600;
+          color: #666;
+          letter-spacing: 1px;
+        }
         .env-sidebar-loading {
           display: flex;
           flex-direction: column;
@@ -124,12 +220,86 @@
           margin-bottom: 12px;
         }
         @keyframes envspin { to { transform: rotate(360deg); } }
+        @media (max-width: 900px) {
+          .env-resize-handle, .env-minimize-btn { display: none !important; }
+        }
       </style>
-      <div class="env-sidebar-loading">
-        <div class="env-sidebar-spinner"></div>
-        <span style="font-size:13px;">Loading...</span>
+      <div class="env-resize-handle" id="env-resize-handle">
+        <div class="env-resize-grip"></div>
+      </div>
+      <button class="env-minimize-btn" id="env-minimize-btn" title="Minimize">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+      <div class="env-minimized-indicator" id="env-minimized-indicator">
+        <div class="env-minimized-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <span class="env-minimized-text">AI</span>
+      </div>
+      <div class="env-sidebar-content">
+        <div class="env-sidebar-loading">
+          <div class="env-sidebar-spinner"></div>
+          <span style="font-size:13px;">Loading...</span>
+        </div>
       </div>
     `;
+
+    // Setup resize functionality
+    const resizeHandle = sidebar.querySelector('#env-resize-handle');
+    const minimizeBtn = sidebar.querySelector('#env-minimize-btn');
+    const minimizedIndicator = sidebar.querySelector('#env-minimized-indicator');
+
+    resizeHandle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      isResizing = true;
+      sidebar.classList.add('resizing');
+      resizeHandle.classList.add('active');
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+      const viewportWidth = window.innerWidth;
+      const maxWidth = viewportWidth * MAX_WIDTH_PERCENT;
+      const newWidth = viewportWidth - e.clientX;
+
+      if (newWidth < MIN_WIDTH / 2) {
+        isMinimized = true;
+        sidebar.classList.add('minimized');
+        sidebarWidth = 48;
+      } else {
+        isMinimized = false;
+        sidebar.classList.remove('minimized');
+        sidebarWidth = Math.max(MIN_WIDTH, Math.min(newWidth, maxWidth));
+        sidebar.style.width = sidebarWidth + 'px';
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+        sidebar.classList.remove('resizing');
+        resizeHandle.classList.remove('active');
+      }
+    });
+
+    function toggleMinimize() {
+      isMinimized = !isMinimized;
+      if (isMinimized) {
+        sidebar.classList.add('minimized');
+      } else {
+        sidebar.classList.remove('minimized');
+        if (sidebarWidth && sidebarWidth > 48) {
+          sidebar.style.width = sidebarWidth + 'px';
+        }
+      }
+    }
+
+    minimizeBtn.addEventListener('click', toggleMinimize);
+    minimizedIndicator.addEventListener('click', toggleMinimize);
 
     document.body.appendChild(sidebar);
 
@@ -232,8 +402,97 @@
           flex-direction: column;
           z-index: 9999;
           overflow: hidden;
+          transition: width 0.2s ease, opacity 0.2s ease;
         }
+        #env-sidebar.resizing { transition: none; user-select: none; }
+        #env-sidebar.minimized { width: 48px !important; min-width: 48px !important; }
         #env-sidebar * { box-sizing: border-box; }
+        .env-resize-handle {
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 6px;
+          cursor: ew-resize;
+          background: transparent;
+          z-index: 101;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .env-resize-handle:hover, .env-resize-handle.active {
+          background: rgba(255, 107, 53, 0.15);
+        }
+        .env-resize-grip {
+          width: 3px;
+          height: 40px;
+          background: #ccc;
+          border-radius: 2px;
+          transition: background 0.15s;
+        }
+        .env-resize-handle:hover .env-resize-grip,
+        .env-resize-handle.active .env-resize-grip {
+          background: #FF6B35;
+        }
+        .env-minimize-btn {
+          position: absolute;
+          left: 10px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 28px;
+          height: 28px;
+          background: #fff;
+          border: 1px solid #E8E8E8;
+          border-radius: 6px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 102;
+          transition: background 0.15s, border-color 0.15s;
+        }
+        .env-minimize-btn:hover {
+          background: #F9FAFB;
+          border-color: #FF6B35;
+        }
+        .env-minimize-btn svg {
+          width: 14px;
+          height: 14px;
+          color: #666;
+          transition: transform 0.2s, color 0.15s;
+        }
+        .env-minimize-btn:hover svg { color: #FF6B35; }
+        #env-sidebar.minimized .env-minimize-btn svg { transform: rotate(180deg); }
+        .env-sidebar-content { display: flex; flex-direction: column; height: 100%; }
+        #env-sidebar.minimized .env-sidebar-content { opacity: 0; pointer-events: none; }
+        .env-minimized-indicator {
+          display: none;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+          cursor: pointer;
+        }
+        #env-sidebar.minimized .env-minimized-indicator { display: flex; }
+        .env-minimized-icon {
+          width: 28px;
+          height: 28px;
+          background: linear-gradient(135deg, #FF6B35, #e55a2b);
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 8px;
+        }
+        .env-minimized-icon svg { width: 16px; height: 16px; color: #fff; }
+        .env-minimized-text {
+          writing-mode: vertical-rl;
+          text-orientation: mixed;
+          font-size: 11px;
+          font-weight: 600;
+          color: #666;
+          letter-spacing: 1px;
+        }
 
         .env-header {
           padding: 20px;
@@ -643,9 +902,28 @@
           }
           #env-sidebar.open { display: flex; }
           #env-toggle { display: flex !important; align-items: center; justify-content: center; }
+          .env-resize-handle, .env-minimize-btn { display: none !important; }
         }
       </style>
 
+      <div class="env-resize-handle" id="env-resize-handle">
+        <div class="env-resize-grip"></div>
+      </div>
+      <button class="env-minimize-btn" id="env-minimize-btn" title="Minimize">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+      <div class="env-minimized-indicator" id="env-minimized-indicator">
+        <div class="env-minimized-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <span class="env-minimized-text">AI</span>
+      </div>
+
+      <div class="env-sidebar-content">
       <div class="env-header">
         <div class="env-score-section">
           <div class="env-score-info">
@@ -717,7 +995,37 @@
           <button id="env-send">Send</button>
         </div>
       </div>
+      </div>
     `;
+
+    // Re-attach resize event listeners after render
+    const resizeHandle = sidebar.querySelector('#env-resize-handle');
+    const minimizeBtn = sidebar.querySelector('#env-minimize-btn');
+    const minimizedIndicator = sidebar.querySelector('#env-minimized-indicator');
+
+    if (resizeHandle) {
+      resizeHandle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        isResizing = true;
+        sidebar.classList.add('resizing');
+        resizeHandle.classList.add('active');
+      });
+    }
+
+    function toggleMinimize() {
+      isMinimized = !isMinimized;
+      if (isMinimized) {
+        sidebar.classList.add('minimized');
+      } else {
+        sidebar.classList.remove('minimized');
+        if (sidebarWidth && sidebarWidth > 48) {
+          sidebar.style.width = sidebarWidth + 'px';
+        }
+      }
+    }
+
+    if (minimizeBtn) minimizeBtn.addEventListener('click', toggleMinimize);
+    if (minimizedIndicator) minimizedIndicator.addEventListener('click', toggleMinimize);
 
     sidebar.querySelectorAll('.env-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
