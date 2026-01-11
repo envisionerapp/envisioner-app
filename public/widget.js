@@ -143,24 +143,6 @@
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#FF6B35;text-decoration:none;font-weight:500;">$1</a>');
   }
 
-  function getMenuRightEdge() {
-    const selectors = ['nav', '[class*="navbar"]', '[class*="navigation"]', '[class*="header"]', '[class*="menu"]', 'header'];
-    let rightEdge = 0;
-    for (const selector of selectors) {
-      const elements = document.querySelectorAll(selector);
-      elements.forEach(el => {
-        const buttons = el.querySelectorAll('a, button');
-        buttons.forEach(btn => {
-          const rect = btn.getBoundingClientRect();
-          if (rect.right > rightEdge && rect.top < 100) {
-            rightEdge = rect.right;
-          }
-        });
-      });
-    }
-    return rightEdge;
-  }
-
   function isOpenedAsPopup() {
     // Check if running inside an iframe
     if (window.self !== window.top) return true;
@@ -359,7 +341,7 @@
     const inserted = document.getElementById('env-sidebar');
     console.log('[Envisioner] Sidebar in DOM:', !!inserted, 'display:', inserted?.style?.display);
 
-    // Only add toggle button and positioning for fixed mode
+    // Only add toggle button for fixed mode (mobile)
     if (!isInline) {
       const toggle = document.createElement('button');
       toggle.id = 'env-toggle';
@@ -367,39 +349,6 @@
       toggle.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
       toggle.onclick = () => sidebar.classList.toggle('open');
       document.body.appendChild(toggle);
-
-      function positionSidebar() {
-        const viewportWidth = window.innerWidth;
-        if (viewportWidth <= 900) return;
-        const menuRight = getMenuRightEdge();
-        const padding = 40;
-        if (menuRight > 0) {
-          const availableWidth = viewportWidth - menuRight - padding;
-          if (availableWidth < 300) {
-            let sidebarWidth = Math.round(viewportWidth * 0.35);
-            sidebarWidth = Math.max(350, Math.min(500, sidebarWidth));
-            sidebar.style.display = 'flex';
-            sidebar.style.left = 'auto';
-            sidebar.style.right = '0';
-            sidebar.style.width = sidebarWidth + 'px';
-          } else {
-            sidebar.style.display = 'flex';
-            sidebar.style.left = (menuRight + padding) + 'px';
-            sidebar.style.right = '0';
-            sidebar.style.width = 'auto';
-          }
-        } else {
-          let sidebarWidth = Math.round(viewportWidth * 0.35);
-          sidebarWidth = Math.max(350, Math.min(500, sidebarWidth));
-          sidebar.style.display = 'flex';
-          sidebar.style.left = 'auto';
-          sidebar.style.right = '0';
-          sidebar.style.width = sidebarWidth + 'px';
-        }
-      }
-
-      setTimeout(positionSidebar, 500);
-      window.addEventListener('resize', positionSidebar);
     }
 
     loadBriefing(sidebar, user);
