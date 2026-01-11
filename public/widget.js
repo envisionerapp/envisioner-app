@@ -916,7 +916,7 @@
         ` : ''}
 
         <div class="env-chat-section">
-          <div class="env-section-label">Ask AI</div>
+          <div class="env-section-label">Ask Envisioner AI</div>
           <div class="env-chat-box" id="env-conversation"></div>
         </div>
       </div>
