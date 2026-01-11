@@ -221,7 +221,6 @@
         #env-sidebar.minimized .env-sidebar-content { opacity: 0; pointer-events: none; }
         #env-sidebar.minimized .env-minimized-indicator { display: flex; }
         #env-sidebar * { box-sizing: border-box; }
-        ${isInline ? '.env-resize-handle { display: none !important; }' : ''}
         .env-resize-handle {
           position: absolute;
           left: -4px;
@@ -469,7 +468,6 @@
         #env-sidebar.minimized .env-sidebar-content { opacity: 0; pointer-events: none; }
         #env-sidebar.minimized .env-minimized-indicator { display: flex; }
         #env-sidebar * { box-sizing: border-box; }
-        ${isInline ? '.env-resize-handle { display: none !important; }' : ''}
         .env-resize-handle {
           position: absolute;
           left: -4px;
