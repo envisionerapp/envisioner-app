@@ -43,6 +43,8 @@
   let isMinimized = false;
   let currentWidth = null;
   let sidebarElement = null;
+  let dragStartX = 0;
+  let dragStartWidth = 0;
   const MIN_WIDTH = 280;
   const MINIMIZED_WIDTH = 52;
   const MAX_WIDTH_PERCENT = 0.85;
@@ -52,13 +54,13 @@
     if (!isResizing || !sidebarElement) return;
     e.preventDefault();
 
-    // Get element's current right edge position
-    const rect = sidebarElement.getBoundingClientRect();
-    const rightEdge = rect.right;
     const maxWidth = window.innerWidth * MAX_WIDTH_PERCENT;
 
-    // Calculate new width based on mouse position relative to right edge
-    const newWidth = rightEdge - e.clientX;
+    // Calculate how far the mouse moved from start position
+    const deltaX = dragStartX - e.clientX;
+    // Dragging left (negative clientX) = positive delta = increase width
+    // Dragging right (positive clientX) = negative delta = decrease width
+    const newWidth = dragStartWidth + deltaX;
 
     if (newWidth < MIN_WIDTH / 2) {
       // Minimize when dragged past threshold
@@ -332,6 +334,8 @@
     function startResize(e) {
       e.preventDefault();
       isResizing = true;
+      dragStartX = e.clientX;
+      dragStartWidth = sidebar.offsetWidth;
       sidebar.classList.add('resizing');
       if (resizeHandle) resizeHandle.classList.add('active');
     }
@@ -1021,6 +1025,8 @@
     function startResize(e) {
       e.preventDefault();
       isResizing = true;
+      dragStartX = e.clientX;
+      dragStartWidth = sidebar.offsetWidth;
       sidebar.classList.add('resizing');
       if (resizeHandle) resizeHandle.classList.add('active');
     }
