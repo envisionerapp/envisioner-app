@@ -63,20 +63,25 @@
   }
 
   function getUser() {
+    let user = null;
     // Softr logged-in user
-    if (window.logged_in_user?.email) return window.logged_in_user.email;
-    if (window.logged_in_user?.Email) return window.logged_in_user.Email;
+    if (window.logged_in_user?.email) user = window.logged_in_user.email;
+    else if (window.logged_in_user?.Email) user = window.logged_in_user.Email;
     // Softr alternative
-    if (window.softr?.user?.email) return window.softr.user.email;
+    else if (window.softr?.user?.email) user = window.softr.user.email;
     // Window config
-    if (window.ENVISIONER_USER) return window.ENVISIONER_USER;
+    else if (window.ENVISIONER_USER) user = window.ENVISIONER_USER;
     // Script tag attribute
-    if (scriptTag?.getAttribute('data-user')) return scriptTag.getAttribute('data-user');
-    // URL params
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    if (token) { try { return atob(token); } catch {} }
-    return params.get('user') || null;
+    else if (scriptTag?.getAttribute('data-user')) user = scriptTag.getAttribute('data-user');
+    else {
+      // URL params
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      if (token) { try { user = atob(token); } catch {} }
+      if (!user) user = params.get('user') || null;
+    }
+    console.log('[Envisioner] User detection:', user ? user : 'not found', { logged_in_user: window.logged_in_user, softr: window.softr });
+    return user;
   }
 
   function getContext() {
@@ -135,9 +140,21 @@
   function createSidebar() {
     if (document.getElementById('env-sidebar')) return true; // Already created
     // Don't show widget if site is opened in a popup or iframe (unless inline mode)
-    if (embedMode !== 'inline' && isOpenedAsPopup()) return true; // Skip but don't retry
-    const user = getUser();
+    if (embedMode !== 'inline' && isOpenedAsPopup()) {
+      console.log('[Envisioner] Skipping - running in popup/iframe');
+      return true; // Skip but don't retry
+    }
+    let user = getUser();
+
+    // Demo mode - show widget without user for testing
+    const demoMode = scriptTag?.getAttribute('data-demo') === 'true' || window.ENVISIONER_DEMO;
+    if (!user && demoMode) {
+      user = 'demo@envisioner.io';
+      console.log('[Envisioner] Demo mode enabled');
+    }
+
     if (!user) {
+      console.log('[Envisioner] No user found, will retry...');
       return false; // Retry later
     }
 
