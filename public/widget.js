@@ -514,10 +514,10 @@
           letter-spacing: 1px;
         }
 
-        .env-header {
-          padding: 20px;
+        .env-footer {
+          padding: 16px;
           background: #fff;
-          border-bottom: 1px solid #E8E8E8;
+          border-top: 1px solid #E8E8E8;
         }
 
         .env-score-section {
@@ -702,7 +702,7 @@
           border-radius: 10px;
           flex: 1;
           overflow-y: auto;
-          min-height: 180px;
+          min-height: 250px;
         }
         .env-chat-msg {
           padding: 12px 14px;
@@ -923,22 +923,6 @@
       </div>
 
       <div class="env-sidebar-content">
-      <div class="env-header">
-        <div class="env-score-section">
-          <div class="env-score-info">
-            <div class="env-score-grade">${grade.label}</div>
-            <div class="env-score-label">Campaign Health Score</div>
-          </div>
-          <div class="env-score-ring">
-            <svg width="80" height="80" viewBox="0 0 80 80">
-              <circle class="env-score-ring-bg" cx="40" cy="40" r="36"/>
-              <circle class="env-score-ring-progress" cx="40" cy="40" r="36"/>
-            </svg>
-            <div class="env-score-value">${briefing.score}</div>
-          </div>
-        </div>
-      </div>
-
       <div class="env-content">
         <div class="env-metrics">
           ${briefing.metrics.map(m => `
@@ -989,6 +973,22 @@
         <div class="env-input-wrap">
           <input type="text" id="env-question" placeholder="Ask about campaigns, creators, performance..." autocomplete="off">
           <button id="env-send">Send</button>
+        </div>
+      </div>
+
+      <div class="env-footer">
+        <div class="env-score-section">
+          <div class="env-score-info">
+            <div class="env-score-grade">${grade.label}</div>
+            <div class="env-score-label">Campaign Health Score</div>
+          </div>
+          <div class="env-score-ring">
+            <svg width="80" height="80" viewBox="0 0 80 80">
+              <circle class="env-score-ring-bg" cx="40" cy="40" r="36"/>
+              <circle class="env-score-ring-progress" cx="40" cy="40" r="36"/>
+            </svg>
+            <div class="env-score-value">${briefing.score}</div>
+          </div>
         </div>
       </div>
       </div>
