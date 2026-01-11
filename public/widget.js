@@ -702,7 +702,7 @@
           border-radius: 10px;
           flex: 1;
           overflow-y: auto;
-          min-height: 250px;
+          min-height: 220px;
         }
         .env-chat-msg {
           padding: 12px 14px;
@@ -759,7 +759,7 @@
           display: flex;
           flex-direction: column;
           gap: 6px;
-          margin-bottom: 10px;
+          margin-top: 10px;
         }
         .env-prompt {
           background: #F9FAFB;
@@ -967,12 +967,12 @@
       </div>
 
       <div class="env-input-area">
-        <div class="env-prompts">
-          ${suggestedPrompts.map(p => `<button class="env-prompt">${escapeHtml(p)}</button>`).join('')}
-        </div>
         <div class="env-input-wrap">
           <input type="text" id="env-question" placeholder="Ask about campaigns, creators, performance..." autocomplete="off">
           <button id="env-send">Send</button>
+        </div>
+        <div class="env-prompts">
+          ${suggestedPrompts.map(p => `<button class="env-prompt">${escapeHtml(p)}</button>`).join('')}
         </div>
       </div>
 
