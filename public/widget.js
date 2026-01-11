@@ -522,9 +522,10 @@
 
         .env-score-section {
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 16px;
+          gap: 8px;
         }
 
         .env-score-ring {
@@ -560,7 +561,7 @@
         }
 
         .env-score-info {
-          text-align: right;
+          text-align: center;
         }
         .env-score-grade {
           font-size: 14px;
@@ -978,16 +979,16 @@
 
       <div class="env-footer">
         <div class="env-score-section">
-          <div class="env-score-info">
-            <div class="env-score-grade">${grade.label}</div>
-            <div class="env-score-label">Campaign Health Score</div>
-          </div>
           <div class="env-score-ring">
             <svg width="80" height="80" viewBox="0 0 80 80">
               <circle class="env-score-ring-bg" cx="40" cy="40" r="36"/>
               <circle class="env-score-ring-progress" cx="40" cy="40" r="36"/>
             </svg>
             <div class="env-score-value">${briefing.score}</div>
+          </div>
+          <div class="env-score-info">
+            <div class="env-score-grade">${grade.label}</div>
+            <div class="env-score-label">Campaign Health Score</div>
           </div>
         </div>
       </div>
